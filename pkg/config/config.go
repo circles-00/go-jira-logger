@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	assert "go_jira_logger/pkg/utils"
+	assert "go_jira_logger/pkg/utils/assert"
 
 	"github.com/spf13/viper"
 )
@@ -59,4 +59,12 @@ func ReadConfigFile() {
 
 func GetBoardUrl() string {
 	return viper.GetString("jira.board_url")
+}
+
+func GetJiraEmail() string {
+	return viper.GetString("jira.email")
+}
+
+func GetJiraToken() string {
+	return viper.GetString("jira.token")
 }

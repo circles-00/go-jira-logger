@@ -1,13 +1,13 @@
 package tui
 
 import (
-	"fmt"
 	"time"
 
 	"go_jira_logger/pkg/api"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type SplashState struct {
@@ -20,8 +20,7 @@ type DelayCompleteMsg struct{}
 func (m model) LoadCmds() []tea.Cmd {
 	cmds := []tea.Cmd{}
 
-	// Make sure the loading state shows for at least a couple seconds
-	cmds = append(cmds, tea.Tick(time.Second*1, func(t time.Time) tea.Msg {
+	cmds = append(cmds, tea.Tick(time.Millisecond*1200, func(t time.Time) tea.Msg {
 		return DelayCompleteMsg{}
 	}))
 
@@ -64,6 +63,16 @@ func (m model) SplashUpdate(msg tea.Msg) (model, tea.Cmd) {
 	return m, nil
 }
 
+func (m model) LogoView() string {
+	return lipgloss.NewStyle().Bold(true).Render("Jira Logger")
+}
+
 func (m model) SplashView() string {
-	return fmt.Sprintln("Jira Logger")
+	return lipgloss.Place(
+		m.viewportWidth,
+		m.viewportHeight,
+		lipgloss.Center,
+		lipgloss.Center,
+		m.LogoView(),
+	)
 }

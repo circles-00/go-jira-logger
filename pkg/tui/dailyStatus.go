@@ -3,20 +3,39 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	"go_jira_logger/pkg/api"
 	"go_jira_logger/pkg/config"
+	"go_jira_logger/pkg/utils"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
 type DailyStatusState struct {
-	cursor int
+	cursor     int
+	timeLogged bool
+}
+
+func (m model) SubmitWorklog(issueKey string, worklogPayload api.WorklogPayload) tea.Cmd {
+	cmd := func() tea.Msg {
+		fmt.Sprintln("FUNC RUNNING", issueKey, worklogPayload.Started, worklogPayload.TimeSpent)
+		// TODO: Change hardcoded data
+		// tags := []string{"Execution", "Planning_&_Analyzing"}
+		// return api.SubmitWorklog(issueKey, tags, worklogPayload)
+
+		return api.AddWorklogResponse{}
+	}
+
+	return cmd
 }
 
 func (m model) DailyStatusUpdate(msg tea.Msg) (model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case api.AddWorklogResponse:
+		m.state.dailyStatus.timeLogged = true
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up":
@@ -34,6 +53,21 @@ func (m model) DailyStatusUpdate(msg tea.Msg) (model, tea.Cmd) {
 		case "backspace":
 			m.tickets[m.state.dailyStatus.cursor].Worklog, cmd = m.tickets[m.state.dailyStatus.cursor].Worklog.Update(msg)
 			return m, cmd
+		case "enter":
+			var cmds []tea.Cmd
+			for _, ticket := range m.tickets {
+				worklogPayload := api.WorklogPayload{
+					TimeSpent: ticket.Worklog.Value(),
+					Started:   time.Now().Format(time.RFC3339),
+				}
+				cmd := m.SubmitWorklog(ticket.Key, worklogPayload)
+
+				cmds = append(cmds, cmd)
+			}
+
+			result := tea.Batch(cmds...)
+
+			return m, result
 		default:
 			m.tickets[m.state.dailyStatus.cursor].Worklog.Focus()
 		}
@@ -70,7 +104,7 @@ func (m model) DailyStatusView() string {
 		baseUrl := config.GetBoardUrl()
 		url := fmt.Sprintf("%s/browse/%s", baseUrl, ticket.Key)
 
-		urlCell := cellStyle.Render(fmt.Sprintf("\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", url, ticket.Key))
+		urlCell := cellStyle.Render(utils.ConstructOsc8Hyperlink(url, ticket.Key))
 		statusCell := cellStyle.Render(ticket.Fields.Status.Name)
 		worklogCell := ticket.Worklog.View()
 
@@ -89,6 +123,11 @@ func (m model) DailyStatusView() string {
 
 	// Instructions for the user
 	instructions := "\nUse 'up'/'down' to select, 'enter' to submit worklog, 'q' to quit."
+	loggedTimeText := ""
 
-	return header + "\n" + separator + "\n" + rows + instructions
+	if m.state.dailyStatus.timeLogged {
+		loggedTimeText = "\nTime is all logged for today, good job!"
+	}
+
+	return header + "\n" + separator + "\n" + rows + instructions + loggedTimeText
 }

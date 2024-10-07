@@ -1,9 +1,12 @@
 package tui
 
 import (
+	"math"
+
 	"go_jira_logger/pkg/api"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -17,6 +20,13 @@ const (
 	dailyStatusPage
 )
 
+const (
+	undersized size = iota
+	small
+	medium
+	large
+)
+
 type JiraTicket struct {
 	api.JiraIssue
 	Worklog textinput.Model
@@ -28,9 +38,20 @@ type state struct {
 }
 
 type model struct {
-	state   state
-	page    page
-	tickets []JiraTicket
+	state           state
+	page            page
+	tickets         []JiraTicket
+	viewportWidth   int
+	viewportHeight  int
+	widthContainer  int
+	heightContainer int
+	widthContent    int
+	heightContent   int
+	size            size
+	accessToken     string
+	viewport        viewport.Model
+	hasScroll       bool
+	ready           bool
 }
 
 func (m model) Init() tea.Cmd {
@@ -39,6 +60,31 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.viewportWidth = msg.Width
+		m.viewportHeight = msg.Height
+
+		switch {
+		case m.viewportWidth < 20 || m.viewportHeight < 10:
+			m.size = undersized
+			m.widthContainer = m.viewportWidth
+			m.heightContainer = m.viewportHeight
+		case m.viewportWidth < 40:
+			m.size = small
+			m.widthContainer = m.viewportWidth
+			m.heightContainer = m.viewportHeight
+		case m.viewportWidth < 60:
+			m.size = medium
+			m.widthContainer = 40
+			m.heightContainer = int(math.Min(float64(msg.Height), 30))
+		default:
+			m.size = large
+			m.widthContainer = 60
+			m.heightContainer = int(math.Min(float64(msg.Height), 30))
+		}
+
+		m.widthContent = m.widthContainer - 4
+		m = m.updateViewport()
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q":
@@ -101,4 +147,31 @@ func NewModel() (tea.Model, error) {
 	}
 
 	return result, nil
+}
+
+func (m model) updateViewport() model {
+	width := m.widthContainer - 4
+	m.heightContent = m.heightContainer
+
+	if !m.ready {
+		m.viewport = viewport.New(width, m.heightContent)
+		m.viewport.HighPerformanceRendering = false
+		m.ready = true
+	} else {
+		m.viewport.Width = width
+		m.viewport.Height = m.heightContent
+		m.viewport.GotoTop()
+	}
+
+	m.viewport.KeyMap = viewport.DefaultKeyMap()
+
+	m.hasScroll = m.viewport.VisibleLineCount() < m.viewport.TotalLineCount()
+
+	if m.hasScroll {
+		m.widthContent = m.widthContainer - 4
+	} else {
+		m.widthContent = m.widthContainer - 2
+	}
+
+	return m
 }
