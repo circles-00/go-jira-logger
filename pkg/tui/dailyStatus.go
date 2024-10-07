@@ -38,18 +38,22 @@ func (m model) DailyStatusUpdate(msg tea.Msg) (model, tea.Cmd) {
 		m.state.dailyStatus.timeLogged = true
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "up":
+		case "k", "up":
 			if m.state.dailyStatus.cursor > 0 {
 				m.tickets[m.state.dailyStatus.cursor].Worklog.Blur()
 				m.state.dailyStatus.cursor--
 				m.tickets[m.state.dailyStatus.cursor].Worklog.Focus()
 			}
-		case "down":
+
+			return m, nil
+		case "down", "j":
 			if m.state.dailyStatus.cursor < len(m.tickets)-1 {
 				m.tickets[m.state.dailyStatus.cursor].Worklog.Blur()
 				m.state.dailyStatus.cursor++
 				m.tickets[m.state.dailyStatus.cursor].Worklog.Focus()
 			}
+
+			return m, nil
 		case "backspace":
 			m.tickets[m.state.dailyStatus.cursor].Worklog, cmd = m.tickets[m.state.dailyStatus.cursor].Worklog.Update(msg)
 			return m, cmd
@@ -73,8 +77,9 @@ func (m model) DailyStatusUpdate(msg tea.Msg) (model, tea.Cmd) {
 		}
 	}
 
-	worklogValue := m.tickets[m.state.dailyStatus.cursor].Worklog
-	if len(worklogValue.Value()) < 5 {
+	worklogValue := m.tickets[m.state.dailyStatus.cursor].Worklog.Value()
+
+	if len(worklogValue) < 5 {
 		m.tickets[m.state.dailyStatus.cursor].Worklog, cmd = m.tickets[m.state.dailyStatus.cursor].Worklog.Update(msg)
 	}
 	return m, cmd
